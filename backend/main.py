@@ -33,7 +33,16 @@ def _background_loop():
             run_detection_cycle()
             db = SessionLocal()
             try:
-                open_alerts = db.query(Alert).filter(Alert.status == "open").all()
+                # Só processa alerta aberto que ainda não teve nenhuma ação
+                # registrada — sem isso, um alerta em dry_run (que nunca muda
+                # de status) seria reprocessado a cada ciclo, pra sempre.
+                already_handled = db.query(ResponseAction.alert_id).distinct()
+                handled_ids = {r[0] for r in already_handled}
+                open_alerts = (
+                    db.query(Alert)
+                    .filter(Alert.status == "open", ~Alert.id.in_(handled_ids) if handled_ids else True)
+                    .all()
+                )
                 for alert in open_alerts:
                     result = handle_alert(alert)
                     if result == "applied":

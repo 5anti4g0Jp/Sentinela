@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 760" width="1180" height="760" font-family="system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4dd4ac"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5a6b7a"/>
+    </marker>
+  </defs>
+
+  <rect width="1180" height="760" fill="#0b0f14"/>
+
+  <text x="30" y="36" fill="#d6e0ea" font-size="20" font-weight="700">Sentinela — Arquitetura</text>
+  <text x="30" y="56" fill="#7b8a9a" font-size="12">Fontes de dado → eventos normalizados → detecção → resposta, tudo pelo mesmo pipeline</text>
+
+  <!-- ===== Camada 1: fontes de dado ===== -->
+  <text x="30" y="96" fill="#5a9bd4" font-size="12" font-weight="700" letter-spacing="0.08em">FONTES DE DADO</text>
+
+  <g>
+    <rect x="30" y="110" width="190" height="64" rx="8" fill="#121820" stroke="#1f2a37" stroke-width="1.5"/>
+    <text x="50" y="136" fill="#d6e0ea" font-size="13" font-weight="600">auth.log / access.log</text>
+    <text x="50" y="154" fill="#7b8a9a" font-size="11">hosts monitorados (lab)</text>
+  </g>
+
+  <g>
+    <rect x="30" y="190" width="190" height="64" rx="8" fill="#121820" stroke="#1f2a37" stroke-width="1.5"/>
+    <text x="50" y="216" fill="#d6e0ea" font-size="13" font-weight="600">Tráfego de rede</text>
+    <text x="50" y="234" fill="#7b8a9a" font-size="11">interface autorizada (lab)</text>
+  </g>
+
+  <g>
+    <rect x="30" y="270" width="190" height="64" rx="8" fill="#121820" stroke="#1f2a37" stroke-width="1.5"/>
+    <text x="50" y="296" fill="#d6e0ea" font-size="13" font-weight="600">Hosts do laboratório</text>
+    <text x="50" y="314" fill="#7b8a9a" font-size="11">portas/serviços a varrer</text>
+  </g>
+
+  <!-- ===== Camada 2: coletores ===== -->
+  <text x="290" y="96" fill="#5a9bd4" font-size="12" font-weight="700" letter-spacing="0.08em">COLETORES</text>
+
+  <g>
+    <rect x="290" y="110" width="210" height="64" rx="8" fill="#14202b" stroke="#2a4a5a" stroke-width="1.5"/>
+    <text x="310" y="136" fill="#d6e0ea" font-size="13" font-weight="600">SIEM collector</text>
+    <text x="310" y="154" fill="#7b8a9a" font-size="11">tail -f + regex -&gt; normaliza</text>
+  </g>
+
+  <g>
+    <rect x="290" y="190" width="210" height="64" rx="8" fill="#14202b" stroke="#2a4a5a" stroke-width="1.5"/>
+    <text x="310" y="216" fill="#d6e0ea" font-size="13" font-weight="600">Network sniffer (scapy)</text>
+    <text x="310" y="234" fill="#7b8a9a" font-size="11">captura + classifica pacote</text>
+  </g>
+
+  <g>
+    <rect x="290" y="270" width="210" height="64" rx="8" fill="#14202b" stroke="#2a4a5a" stroke-width="1.5"/>
+    <text x="310" y="296" fill="#d6e0ea" font-size="13" font-weight="600">Vuln scanner</text>
+    <text x="310" y="314" fill="#7b8a9a" font-size="11">portas + banner + NVD/CVE</text>
+  </g>
+
+  <!-- setas fonte -> coletor -->
+  <path d="M220 142 L288 142" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M220 222 L288 222" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M220 302 L288 302" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Camada 3: banco central ===== -->
+  <g>
+    <rect x="560" y="140" width="220" height="100" rx="10" fill="#121820" stroke="#4dd4ac" stroke-width="2"/>
+    <text x="670" y="172" fill="#4dd4ac" font-size="14" font-weight="700" text-anchor="middle">Events</text>
+    <text x="670" y="192" fill="#7b8a9a" font-size="11" text-anchor="middle">(tabela compartilhada)</text>
+    <text x="670" y="210" fill="#d6e0ea" font-size="10" text-anchor="middle">logs + rede na mesma estrutura</text>
+    <text x="670" y="226" fill="#d6e0ea" font-size="10" text-anchor="middle">source · src_ip · action · outcome</text>
+  </g>
+
+  <path d="M500 142 L558 180" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M500 222 L558 195" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="560" y="270" width="220" height="64" rx="8" fill="#121820" stroke="#1f2a37" stroke-width="1.5"/>
+    <text x="580" y="296" fill="#d6e0ea" font-size="13" font-weight="600">Vulnerability</text>
+    <text x="580" y="314" fill="#7b8a9a" font-size="11">host · porta · CVE · CVSS</text>
+  </g>
+  <path d="M500 302 L558 302" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Camada 4: motor de detecção ===== -->
+  <text x="870" y="96" fill="#5a9bd4" font-size="12" font-weight="700" letter-spacing="0.08em">DETECÇÃO</text>
+
+  <g>
+    <rect x="850" y="110" width="300" height="130" rx="8" fill="#14202b" stroke="#2a4a5a" stroke-width="1.5"/>
+    <text x="870" y="134" fill="#d6e0ea" font-size="13" font-weight="600">Motor de regras (ciclo 10s)</text>
+    <text x="870" y="156" fill="#7b8a9a" font-size="11">• brute force SSH — T1110</text>
+    <text x="870" y="174" fill="#7b8a9a" font-size="11">• SQLi / XSS web — T1190</text>
+    <text x="870" y="192" fill="#7b8a9a" font-size="11">• port scan — T1046</text>
+    <text x="870" y="210" fill="#7b8a9a" font-size="11">• anomalia de volume — T1041</text>
+    <text x="870" y="228" fill="#5a9bd4" font-size="10">mapeado a MITRE ATT&amp;CK</text>
+  </g>
+
+  <path d="M780 190 L848 175" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="850" y="270" width="300" height="64" rx="8" fill="#121820" stroke="#ff9f43" stroke-width="1.5"/>
+    <text x="870" y="296" fill="#d6e0ea" font-size="13" font-weight="600">Alert</text>
+    <text x="870" y="314" fill="#7b8a9a" font-size="11">rule · mitre_id · severity · status</text>
+  </g>
+  <path d="M1000 240 L1000 268" stroke="#ff9f43" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Camada 5: resposta ===== -->
+  <g>
+    <rect x="850" y="360" width="300" height="86" rx="8" fill="#121820" stroke="#ff4d4f" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="870" y="384" fill="#d6e0ea" font-size="13" font-weight="600">Resposta ativa (defensiva)</text>
+    <text x="870" y="402" fill="#7b8a9a" font-size="11">severidade high/critical -&gt; ban_ip</text>
+    <text x="870" y="420" fill="#ff9f43" font-size="10" font-weight="700">DRY_RUN=True por padrão</text>
+    <text x="870" y="436" fill="#5a6b7a" font-size="10">só no próprio perímetro — sem hack-back</text>
+  </g>
+  <path d="M1000 334 L1000 358" stroke="#ff4d4f" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="850" y="470" width="300" height="56" rx="8" fill="#121820" stroke="#1f2a37" stroke-width="1.5"/>
+    <text x="870" y="494" fill="#d6e0ea" font-size="13" font-weight="600">ResponseAction</text>
+    <text x="870" y="512" fill="#7b8a9a" font-size="11">log de toda ação tomada</text>
+  </g>
+  <path d="M1000 446 L1000 468" stroke="#5a6b7a" stroke-width="2" marker-end="url(#arrowMuted)"/>
+
+  <!-- ===== API + dashboard ===== -->
+  <text x="290" y="396" fill="#5a9bd4" font-size="12" font-weight="700" letter-spacing="0.08em">EXPOSIÇÃO</text>
+
+  <g>
+    <rect x="290" y="410" width="480" height="70" rx="8" fill="#14202b" stroke="#2a4a5a" stroke-width="1.5"/>
+    <text x="310" y="436" fill="#d6e0ea" font-size="13" font-weight="600">FastAPI — main.py</text>
+    <text x="310" y="456" fill="#7b8a9a" font-size="11">/api/events · /api/alerts · /api/vulnerabilities · /api/scan · /api/responses</text>
+  </g>
+
+  <!-- banco -> api -->
+  <path d="M640 240 L500 408" stroke="#5a6b7a" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrowMuted)"/>
+  <path d="M700 334 L560 412" stroke="#5a6b7a" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrowMuted)"/>
+  <path d="M900 240 L720 412" stroke="#5a6b7a" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrowMuted)"/>
+  <path d="M900 526 L770 450" stroke="#5a6b7a" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrowMuted)"/>
+
+  <g>
+    <rect x="290" y="530" width="480" height="70" rx="8" fill="#121820" stroke="#4dd4ac" stroke-width="2"/>
+    <text x="310" y="556" fill="#d6e0ea" font-size="13" font-weight="600">Dashboard (frontend/index.html)</text>
+    <text x="310" y="576" fill="#7b8a9a" font-size="11">poll a cada 5s — alertas, eventos, vulnerabilidades</text>
+  </g>
+  <path d="M530 480 L530 528" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== legenda ===== -->
+  <g transform="translate(30, 650)">
+    <rect width="1120" height="86" rx="8" fill="#121820" stroke="#1f2a37"/>
+    <text x="20" y="26" fill="#7b8a9a" font-size="11" font-weight="700">LEGENDA</text>
+    <line x1="20" y1="44" x2="50" y2="44" stroke="#4dd4ac" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="58" y="48" fill="#7b8a9a" font-size="11">fluxo de dado implementado e testado</text>
+    <line x1="400" y1="44" x2="430" y2="44" stroke="#5a6b7a" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrowMuted)"/>
+    <text x="438" y="48" fill="#7b8a9a" font-size="11">leitura via API (consulta, não push)</text>
+    <text x="20" y="68" fill="#ff9f43" font-size="11" font-weight="700">⚠ DRY_RUN=True por padrão</text>
+    <text x="230" y="68" fill="#7b8a9a" font-size="11">— nenhuma ação de firewall é aplicada até você trocar conscientemente para False, em ambiente de lab.</text>
+  </g>
+</svg>

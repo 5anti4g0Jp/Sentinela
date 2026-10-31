@@ -2,83 +2,179 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8">
-<title>Sentinela — Dashboard</title>
+<title>Sentinela — Console Tático</title>
 <link rel="icon" type="image/png" href="assets/favicon-32.png">
 <style>
-  h1 { display: flex; align-items: center; gap: 10px; }
-  h1 img { height: 32px; width: auto; }
   :root {
-    --bg: #0b0f14; --panel: #121820; --border: #1f2a37; --text: #d6e0ea;
-    --muted: #7b8a9a; --crit: #ff4d4f; --high: #ff9f43; --med: #ffd43b;
-    --low: #4dd4ac; --info: #5a9bd4; --ok: #2ecc71;
+    --bg: #05080c; --panel: #0a1119; --border: #113244; --border2: #1a425a;
+    --text: #cfe8f5; --muted: #5c7a8a; --accent: #4ad8ff; --accent-dim: #1d6e8c;
+    --crit: #ff4d4f; --high: #ff9f43; --med: #ffd43b; --low: #4dd4ac; --info: #5a9bd4;
   }
   * { box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
-         margin: 0; padding: 24px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-          padding: 14px; }
-  .card .n { font-size: 26px; font-weight: 700; }
-  .card .l { color: var(--muted); font-size: 12px; }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-           padding: 14px; margin-bottom: 16px; }
-  .panel h2 { font-size: 14px; margin: 0 0 10px; color: var(--muted); font-weight: 600;
-              text-transform: uppercase; letter-spacing: .05em; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px;
-       border-bottom: 1px solid var(--border); }
-  td { padding: 6px 8px; border-bottom: 1px solid #16202b; }
-  .sev { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-  .sev.critical { background: #3a1216; color: var(--crit); }
-  .sev.high { background: #3a2412; color: var(--high); }
-  .sev.medium { background: #3a3312; color: var(--med); }
-  .sev.low { background: #123a2e; color: var(--low); }
-  .sev.info { background: #122a3a; color: var(--info); }
-  .status.mitigated { color: var(--ok); }
-  .status.open { color: var(--high); }
-  .empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+  body {
+    background: radial-gradient(ellipse at 50% -10%, #0c1a24 0%, var(--bg) 55%);
+    color: var(--text); font-family: 'SF Mono', 'Courier New', monospace;
+    margin: 0; padding: 20px; font-size: 13px;
+  }
+  .topbar { display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { height: 30px; filter: drop-shadow(0 0 6px rgba(74,216,255,.35)); }
+  .brand h1 { font-size: 17px; margin: 0; letter-spacing: .08em; font-weight: 700; }
+  .brand .tag { color: var(--muted); font-size: 10px; letter-spacing: .12em; }
+  .clock { color: var(--accent); font-size: 12px; letter-spacing: .05em; }
+
+  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+
+  .panel {
+    background: linear-gradient(180deg, var(--panel), #060a0f);
+    border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px;
+    position: relative; overflow: hidden;
+  }
+  .panel::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
+  }
+  .panel h2 {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 12px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .panel h2 .corner { color: var(--muted); font-size: 9px; letter-spacing: .1em; }
+
+  .stat { text-align: left; }
+  .stat .n { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+  .stat .n.alert { color: var(--high); }
+  .stat .l { color: var(--muted); font-size: 10px; letter-spacing: .08em; margin-top: 4px; text-transform: uppercase; }
+
+  svg text { font-family: inherit; }
+  .grid-line { stroke: #10202c; stroke-width: 1; }
+  .legend { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); letter-spacing: .04em; }
+  .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 5px 6px;
+       border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 9.5px; letter-spacing: .06em; }
+  td { padding: 5px 6px; border-bottom: 1px solid #0d1821; }
+  .sev { padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: .03em; }
+  .sev.critical { background: #2a0e10; color: var(--crit); border: 1px solid #4a1418; }
+  .sev.high { background: #2a1d0e; color: var(--high); border: 1px solid #4a3414; }
+  .sev.medium { background: #2a2610; color: var(--med); border: 1px solid #4a4014; }
+  .sev.low { background: #0e2a21; color: var(--low); border: 1px solid #144a38; }
+  .sev.info { background: #0e1f2a; color: var(--info); border: 1px solid #14394a; }
+  .status-open { color: var(--high); }
+  .status-mitigated { color: var(--low); }
+
+  #terminal { font-size: 11.5px; line-height: 1.7; height: 190px; overflow-y: auto; }
+  #terminal .ln { white-space: pre-wrap; word-break: break-all; }
+  #terminal .tag-ok { color: var(--low); }
+  #terminal .tag-warn { color: var(--high); }
+  #terminal .tag-crit { color: var(--crit); }
+  #terminal .tag-info { color: var(--accent-dim); }
+  #terminal .cursor { color: var(--accent); }
+
+  .controls-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  input[type=text] {
+    flex: 1; background: #060a0f; border: 1px solid var(--border2); color: var(--text);
+    padding: 7px 10px; border-radius: 3px; font-family: inherit; font-size: 12px;
+  }
+  button {
+    background: #0c2430; border: 1px solid var(--accent-dim); color: var(--accent);
+    padding: 7px 14px; border-radius: 3px; font-family: inherit; font-size: 11px;
+    letter-spacing: .06em; text-transform: uppercase; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #123548; }
+  button:disabled { opacity: .4; cursor: default; }
+
+  .mode-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: 3px; font-size: 10.5px; letter-spacing: .05em; margin-bottom: 12px;
+  }
+  .mode-badge.dry { background: #2a1d0e; border: 1px solid #4a3414; color: var(--high); }
+  .mode-badge.live { background: #2a0e10; border: 1px solid #4a1418; color: var(--crit); }
+  .mode-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .footer { margin-top: 16px; display: flex; justify-content: space-between;
+            color: var(--muted); font-size: 10px; letter-spacing: .06em; }
+  .empty { color: var(--muted); font-size: 11px; padding: 8px 0; }
 </style>
 </head>
 <body>
-  <h1><img src="assets/logo_dark_bg.png" alt="Sentinela"> Sentinela</h1>
-  <div class="sub">SIEM + Detecção + Scanner + Rede — ambiente de laboratório</div>
 
-  <div class="grid" id="summary"></div>
-
-  <div class="panel">
-    <h2>Alertas</h2>
-    <table>
-      <thead><tr><th>Quando</th><th>Regra</th><th>MITRE</th><th>Severidade</th>
-        <th>Origem</th><th>Descrição</th><th>Status</th></tr></thead>
-      <tbody id="alerts"></tbody>
-    </table>
+<div class="topbar">
+  <div class="brand">
+    <img src="assets/logo_dark_bg.png" alt="Sentinela">
+    <div>
+      <h1>SENTINELA</h1>
+      <div class="tag">CONSOLE TÁTICO — AMBIENTE DE LABORATÓRIO</div>
+    </div>
   </div>
+  <div class="clock" id="clock">--:--:--</div>
+</div>
 
-  <div class="panel">
-    <h2>Eventos recentes</h2>
-    <table>
-      <thead><tr><th>Quando</th><th>Fonte</th><th>Origem</th><th>Destino</th>
-        <th>Ação</th><th>Resultado</th></tr></thead>
-      <tbody id="events"></tbody>
-    </table>
-  </div>
+<div class="grid3" id="stats"></div>
 
+<div class="grid">
   <div class="panel">
-    <h2>Vulnerabilidades</h2>
-    <table>
-      <thead><tr><th>Host</th><th>Porta</th><th>Banner</th><th>CVE</th>
-        <th>Severidade</th></tr></thead>
-      <tbody id="vulns"></tbody>
-    </table>
+    <h2>Origem dos eventos <span class="corner">SCATTER</span></h2>
+    <svg id="scatter" width="100%" height="220" viewBox="0 0 560 220"></svg>
+    <div class="legend" id="scatter-legend"></div>
+    <div style="color:var(--muted); font-size:9.5px; margin-top:6px;">
+      posição = hash do IP (identidade visual estável), não geolocalização real
+    </div>
   </div>
+  <div class="panel">
+    <h2>Alertas por severidade <span class="corner">STATUS</span></h2>
+    <svg id="sevbar" width="100%" height="220" viewBox="0 0 400 220"></svg>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Terminal <span class="corner">LOG</span></h2>
+    <div id="terminal"></div>
+  </div>
+  <div class="panel">
+    <h2>Controles <span class="corner">ACTIONS</span></h2>
+    <div class="mode-badge dry" id="mode-badge">
+      <span class="dot"></span> <span id="mode-text">verificando modo de resposta…</span>
+    </div>
+    <div class="controls-row">
+      <input type="text" id="scan-host" placeholder="host do laboratório (ex: 192.168.56.10)">
+      <button id="btn-scan">Nova varredura</button>
+    </div>
+    <div class="controls-row">
+      <button id="btn-refresh" style="flex:1">Atualizar agora</button>
+    </div>
+    <div style="color:var(--muted); font-size:10.5px; line-height:1.6; margin-top:10px;">
+      Toda resposta automática age só dentro do seu firewall local.<br>
+      Nenhuma ação é disparada contra o IP de origem de um alerta.
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:14px;">
+  <h2>Vulnerabilidades <span class="corner">SCANNER</span></h2>
+  <table>
+    <thead><tr><th>Host</th><th>Porta</th><th>Banner</th><th>CVE</th><th>Severidade</th></tr></thead>
+    <tbody id="vulns"></tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <span>v0.1 · pipeline SIEM + detecção + resposta ativa</span>
+  <span id="conn-status">conectando…</span>
+</div>
 
 <script>
 const API = "http://localhost:8000/api";
+const SEV_COLOR = { critical: "#ff4d4f", high: "#ff9f43", medium: "#ffd43b", low: "#4dd4ac", info: "#5a9bd4" };
+const SOURCE_COLOR = { auth_log: "#4ad8ff", web_log: "#ff9f43", network: "#4dd4ac" };
 
-function fmtTime(ts) { return new Date(ts).toLocaleString("pt-BR"); }
 function esc(s) { return (s ?? "").toString().replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
+function fmtTime(ts) { return new Date(ts).toLocaleTimeString("pt-BR"); }
 
 async function fetchJSON(path) {
   const res = await fetch(`${API}${path}`);
@@ -86,43 +182,110 @@ async function fetchJSON(path) {
   return res.json();
 }
 
-async function renderSummary() {
+// hash determinístico de IP -> posição estável no scatter (não é geolocalização real)
+function hashPos(ip, w, h, pad = 30) {
+  let hash = 0;
+  for (const c of ip) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  const x = pad + (hash % 1000) / 1000 * (w - 2 * pad);
+  const y = pad + ((hash >> 10) % 1000) / 1000 * (h - 2 * pad);
+  return [x, y];
+}
+
+function renderClock() {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("pt-BR");
+}
+
+async function renderStats() {
   const s = await fetchJSON("/summary");
-  document.getElementById("summary").innerHTML = `
-    <div class="card"><div class="n">${s.total_events}</div><div class="l">Eventos totais</div></div>
-    <div class="card"><div class="n">${s.open_alerts}</div><div class="l">Alertas abertos</div></div>
-    <div class="card"><div class="n">${s.mitigated_alerts}</div><div class="l">Mitigados</div></div>
-    <div class="card"><div class="n">${s.vulnerabilities}</div><div class="l">Vulnerabilidades</div></div>
-  `;
+  const cards = [
+    { n: s.open_alerts, l: "Alertas abertos", alert: s.open_alerts > 0 },
+    { n: s.mitigated_alerts, l: "Mitigados" },
+    { n: s.vulnerabilities, l: "Vulnerabilidades" },
+    { n: s.total_events, l: "Eventos totais" },
+  ];
+  document.getElementById("stats").innerHTML = cards.map(c => `
+    <div class="panel stat">
+      <div class="n ${c.alert ? 'alert' : ''}">${c.n}</div>
+      <div class="l">${c.l}</div>
+    </div>`).join("");
 }
 
-async function renderAlerts() {
-  const rows = await fetchJSON("/alerts?limit=30");
-  const body = document.getElementById("alerts");
-  body.innerHTML = rows.length ? rows.map(a => `
-    <tr>
-      <td>${fmtTime(a.timestamp)}</td>
-      <td>${esc(a.rule)}</td>
-      <td>${esc(a.mitre_id || "-")}</td>
-      <td><span class="sev ${a.severity}">${a.severity}</span></td>
-      <td>${esc(a.src_ip)}</td>
-      <td>${esc(a.description)}</td>
-      <td class="status ${a.status}">${a.status}</td>
-    </tr>`).join("") : `<tr><td colspan="7" class="empty">Sem alertas ainda.</td></tr>`;
+async function renderScatter() {
+  const events = await fetchJSON("/events?limit=80");
+  const svg = document.getElementById("scatter");
+  const w = 560, h = 220;
+  let marks = `<g class="grid-lines">`;
+  for (let i = 0; i <= 6; i++) {
+    marks += `<line x1="0" y1="${i * h / 6}" x2="${w}" y2="${i * h / 6}" class="grid-line"/>`;
+    marks += `<line x1="${i * w / 6}" y1="0" x2="${i * w / 6}" y2="${h}" class="grid-line"/>`;
+  }
+  marks += `</g>`;
+
+  if (!events.length) {
+    svg.innerHTML = marks + `<text x="${w/2}" y="${h/2}" fill="#5c7a8a" font-size="12" text-anchor="middle">sem eventos ainda</text>`;
+    return;
+  }
+
+  for (const e of events) {
+    const [x, y] = hashPos(e.src_ip + e.id, w, h);
+    const color = SOURCE_COLOR[e.source] || "#5c7a8a";
+    marks += `<circle cx="${x}" cy="${y}" r="4" fill="${color}" opacity="0.85">
+      <title>${esc(e.src_ip)} — ${esc(e.action)} (${esc(e.source)})</title>
+    </circle>`;
+  }
+  svg.innerHTML = marks;
+
+  const legend = Object.entries(SOURCE_COLOR).map(([k, c]) =>
+    `<span><i style="background:${c}"></i>${esc(k)}</span>`).join("");
+  document.getElementById("scatter-legend").innerHTML = legend;
 }
 
-async function renderEvents() {
-  const rows = await fetchJSON("/events?limit=30");
-  const body = document.getElementById("events");
-  body.innerHTML = rows.length ? rows.map(e => `
-    <tr>
-      <td>${fmtTime(e.timestamp)}</td>
-      <td>${esc(e.source)}</td>
-      <td>${esc(e.src_ip)}</td>
-      <td>${esc(e.dst_ip || "-")}${e.dst_port ? ":" + e.dst_port : ""}</td>
-      <td>${esc(e.action)}</td>
-      <td>${esc(e.outcome || "-")}</td>
-    </tr>`).join("") : `<tr><td colspan="6" class="empty">Sem eventos ainda.</td></tr>`;
+async function renderSevBar() {
+  const alerts = await fetchJSON("/alerts?limit=200");
+  const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const a of alerts) if (counts[a.severity] !== undefined) counts[a.severity]++;
+
+  const order = ["critical", "high", "medium", "low", "info"];
+  const max = Math.max(1, ...Object.values(counts));
+  const w = 400, h = 220, barH = 26, gap = 16, left = 70;
+
+  let bars = "";
+  order.forEach((sev, i) => {
+    const y = 14 + i * (barH + gap);
+    const barW = (counts[sev] / max) * (w - left - 40);
+    bars += `
+      <text x="0" y="${y + barH / 2 + 4}" fill="#5c7a8a" font-size="10" text-transform="uppercase">${sev}</text>
+      <rect x="${left}" y="${y}" width="${Math.max(barW, 2)}" height="${barH}" rx="3" fill="${SEV_COLOR[sev]}" opacity="0.85"/>
+      <text x="${left + barW + 8}" y="${y + barH / 2 + 4}" fill="#cfe8f5" font-size="12" font-weight="700">${counts[sev]}</text>
+    `;
+  });
+  document.getElementById("sevbar").innerHTML = bars;
+}
+
+async function renderTerminal() {
+  const [events, responses] = await Promise.all([
+    fetchJSON("/events?limit=8"),
+    fetchJSON("/responses?limit=4"),
+  ]);
+  // intercala eventos e respostas por timestamp real, não em blocos separados
+  const merged = [
+    ...events.map(e => ({
+      ts: e.timestamp,
+      tag: e.outcome === "failure" || e.action?.includes("sqli") || e.action?.includes("xss") ? "tag-crit"
+         : e.action?.includes("scan") || e.action === "tcp_syn" ? "tag-warn" : "tag-ok",
+      text: `${esc(e.source)} :: ${esc(e.src_ip)} -&gt; ${esc(e.action)}`,
+    })),
+    ...responses.map(r => ({
+      ts: r.timestamp, tag: "tag-info",
+      text: `response :: ${esc(r.action)} ${esc(r.target)} [${esc(r.result)}]`,
+    })),
+  ].sort((a, b) => new Date(a.ts) - new Date(b.ts));
+
+  const lines = merged.map(m => `<div class="ln"><span class="${m.tag}">[${fmtTime(m.ts)}]</span> ${m.text}</div>`);
+  lines.push(`<div class="ln"><span class="cursor">[AC_]</span></div>`);
+  const term = document.getElementById("terminal");
+  term.innerHTML = lines.length > 1 ? lines.join("") : `<div class="empty">aguardando eventos…</div>`;
+  term.scrollTop = term.scrollHeight;
 }
 
 async function renderVulns() {
@@ -138,14 +301,49 @@ async function renderVulns() {
     </tr>`).join("") : `<tr><td colspan="5" class="empty">Nenhum scan rodado ainda.</td></tr>`;
 }
 
-async function refreshAll() {
+async function renderModeBadge() {
+  // Indicador apenas — reflete o padrão documentado do backend (DRY_RUN=True).
+  // Não é um controle: trocar o modo real exige mudar a env var no servidor.
+  const badge = document.getElementById("mode-badge");
+  const text = document.getElementById("mode-text");
+  badge.className = "mode-badge dry";
+  text.textContent = "RESPOSTA AUTOMÁTICA: DRY_RUN (simulação — nenhuma regra de firewall é aplicada)";
+}
+
+async function triggerScan() {
+  const host = document.getElementById("scan-host").value.trim();
+  if (!host) return;
+  const btn = document.getElementById("btn-scan");
+  btn.disabled = true; btn.textContent = "Varrendo…";
   try {
-    await Promise.all([renderSummary(), renderAlerts(), renderEvents(), renderVulns()]);
+    await fetch(`${API}/scan`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host, enrich_cve: true }),
+    });
+    await refreshAll();
   } catch (e) {
-    console.error("Falha ao atualizar dashboard:", e);
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.textContent = "Nova varredura";
   }
 }
 
+async function refreshAll() {
+  const statusEl = document.getElementById("conn-status");
+  try {
+    await Promise.all([renderStats(), renderScatter(), renderSevBar(), renderTerminal(), renderVulns(), renderModeBadge()]);
+    statusEl.textContent = "canal ativo · atualizado " + new Date().toLocaleTimeString("pt-BR");
+  } catch (e) {
+    statusEl.textContent = "sem conexão com a API (localhost:8000)";
+    console.error(e);
+  }
+}
+
+document.getElementById("btn-scan").addEventListener("click", triggerScan);
+document.getElementById("btn-refresh").addEventListener("click", refreshAll);
+
+renderClock();
+setInterval(renderClock, 1000);
 refreshAll();
 setInterval(refreshAll, 5000);
 </script>

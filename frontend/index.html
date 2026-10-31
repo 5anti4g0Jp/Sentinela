@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <title>Sentinela — Dashboard</title>
+<link rel="icon" type="image/png" href="assets/favicon-32.png">
 <style>
+  h1 { display: flex; align-items: center; gap: 10px; }
+  h1 img { height: 32px; width: auto; }
   :root {
     --bg: #0b0f14; --panel: #121820; --border: #1f2a37; --text: #d6e0ea;
     --muted: #7b8a9a; --crit: #ff4d4f; --high: #ff9f43; --med: #ffd43b;
@@ -39,7 +42,7 @@
 </style>
 </head>
 <body>
-  <h1>🛡️ Sentinela</h1>
+  <h1><img src="assets/logo_dark_bg.png" alt="Sentinela"> Sentinela</h1>
   <div class="sub">SIEM + Detecção + Scanner + Rede — ambiente de laboratório</div>
 
   <div class="grid" id="summary"></div>

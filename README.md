@@ -44,6 +44,11 @@ detecção vê logs e tráfego de rede pela mesma lente.
 ## Como rodar (ambiente de laboratório)
 
 ```bash
+# libpcap é dependência de sistema do scapy p/ captura com filtro BPF —
+# sem ela, run_sniffer() cai num modo sem filtro (mais lento, mas não
+# falha silenciosamente; veja o aviso que ele imprime se isso acontecer)
+sudo apt-get install -y libpcap0.8   # Debian/Ubuntu
+
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

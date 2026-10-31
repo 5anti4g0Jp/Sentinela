@@ -83,9 +83,29 @@ def run_sniffer(interface: str = None, save_pcap: str = None, bpf_filter: str = 
         from scapy.utils import PcapWriter
         pcap_writer = PcapWriter(save_pcap, append=True, sync=True)
 
+    # Filtro BPF exige libpcap instalada no sistema (apt install libpcap0.8
+    # no Debian/Ubuntu). Sem ela, sniff() com `filter=` falha e scapy só
+    # imprime um aviso no console — sem exceção, sem captura, sem erro
+    # óbvio. Em vez de deixar isso falhar calado, testamos antes e caímos
+    # pra captura sem filtro (mais eventos chegam, mas _handle_packet já
+    # filtra por camada IP/TCP/UDP, então a classificação continua correta).
+    use_filter = bpf_filter or "tcp or udp"
+    try:
+        from scapy.arch.common import compile_filter
+        # linktype=1 (DLT_EN10MB/Ethernet) só pra testar se libpcap resolve o
+        # filtro sem precisar de uma interface ao vivo nesse ponto do código.
+        compile_filter(use_filter, linktype=1)
+    except Exception:
+        print(
+            "[sentinela] AVISO: libpcap indisponível — capturando sem filtro BPF "
+            "(mais lento, mas não falha silenciosamente). "
+            "Instale libpcap0.8 pra capturar com filtro."
+        )
+        use_filter = None
+
     sniff(
         iface=interface,
-        filter=bpf_filter or "tcp or udp",
+        filter=use_filter,
         prn=lambda pkt: _handle_packet(pkt, pcap_writer),
         store=False,  # não acumula pacotes em memória — grava e descarta
     )

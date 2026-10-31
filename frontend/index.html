@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>Sentinela — Dashboard</title>
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #121820; --border: #1f2a37; --text: #d6e0ea;
+    --muted: #7b8a9a; --crit: #ff4d4f; --high: #ff9f43; --med: #ffd43b;
+    --low: #4dd4ac; --info: #5a9bd4; --ok: #2ecc71;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
+         margin: 0; padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+          padding: 14px; }
+  .card .n { font-size: 26px; font-weight: 700; }
+  .card .l { color: var(--muted); font-size: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+           padding: 14px; margin-bottom: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 10px; color: var(--muted); font-weight: 600;
+              text-transform: uppercase; letter-spacing: .05em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px;
+       border-bottom: 1px solid var(--border); }
+  td { padding: 6px 8px; border-bottom: 1px solid #16202b; }
+  .sev { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .sev.critical { background: #3a1216; color: var(--crit); }
+  .sev.high { background: #3a2412; color: var(--high); }
+  .sev.medium { background: #3a3312; color: var(--med); }
+  .sev.low { background: #123a2e; color: var(--low); }
+  .sev.info { background: #122a3a; color: var(--info); }
+  .status.mitigated { color: var(--ok); }
+  .status.open { color: var(--high); }
+  .empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+</style>
+</head>
+<body>
+  <h1>🛡️ Sentinela</h1>
+  <div class="sub">SIEM + Detecção + Scanner + Rede — ambiente de laboratório</div>
+
+  <div class="grid" id="summary"></div>
+
+  <div class="panel">
+    <h2>Alertas</h2>
+    <table>
+      <thead><tr><th>Quando</th><th>Regra</th><th>MITRE</th><th>Severidade</th>
+        <th>Origem</th><th>Descrição</th><th>Status</th></tr></thead>
+      <tbody id="alerts"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>Eventos recentes</h2>
+    <table>
+      <thead><tr><th>Quando</th><th>Fonte</th><th>Origem</th><th>Destino</th>
+        <th>Ação</th><th>Resultado</th></tr></thead>
+      <tbody id="events"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>Vulnerabilidades</h2>
+    <table>
+      <thead><tr><th>Host</th><th>Porta</th><th>Banner</th><th>CVE</th>
+        <th>Severidade</th></tr></thead>
+      <tbody id="vulns"></tbody>
+    </table>
+  </div>
+
+<script>
+const API = "http://localhost:8000/api";
+
+function fmtTime(ts) { return new Date(ts).toLocaleString("pt-BR"); }
+function esc(s) { return (s ?? "").toString().replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
+
+async function fetchJSON(path) {
+  const res = await fetch(`${API}${path}`);
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  return res.json();
+}
+
+async function renderSummary() {
+  const s = await fetchJSON("/summary");
+  document.getElementById("summary").innerHTML = `
+    <div class="card"><div class="n">${s.total_events}</div><div class="l">Eventos totais</div></div>
+    <div class="card"><div class="n">${s.open_alerts}</div><div class="l">Alertas abertos</div></div>
+    <div class="card"><div class="n">${s.mitigated_alerts}</div><div class="l">Mitigados</div></div>
+    <div class="card"><div class="n">${s.vulnerabilities}</div><div class="l">Vulnerabilidades</div></div>
+  `;
+}
+
+async function renderAlerts() {
+  const rows = await fetchJSON("/alerts?limit=30");
+  const body = document.getElementById("alerts");
+  body.innerHTML = rows.length ? rows.map(a => `
+    <tr>
+      <td>${fmtTime(a.timestamp)}</td>
+      <td>${esc(a.rule)}</td>
+      <td>${esc(a.mitre_id || "-")}</td>
+      <td><span class="sev ${a.severity}">${a.severity}</span></td>
+      <td>${esc(a.src_ip)}</td>
+      <td>${esc(a.description)}</td>
+      <td class="status ${a.status}">${a.status}</td>
+    </tr>`).join("") : `<tr><td colspan="7" class="empty">Sem alertas ainda.</td></tr>`;
+}
+
+async function renderEvents() {
+  const rows = await fetchJSON("/events?limit=30");
+  const body = document.getElementById("events");
+  body.innerHTML = rows.length ? rows.map(e => `
+    <tr>
+      <td>${fmtTime(e.timestamp)}</td>
+      <td>${esc(e.source)}</td>
+      <td>${esc(e.src_ip)}</td>
+      <td>${esc(e.dst_ip || "-")}${e.dst_port ? ":" + e.dst_port : ""}</td>
+      <td>${esc(e.action)}</td>
+      <td>${esc(e.outcome || "-")}</td>
+    </tr>`).join("") : `<tr><td colspan="6" class="empty">Sem eventos ainda.</td></tr>`;
+}
+
+async function renderVulns() {
+  const rows = await fetchJSON("/vulnerabilities?limit=50");
+  const body = document.getElementById("vulns");
+  body.innerHTML = rows.length ? rows.map(v => `
+    <tr>
+      <td>${esc(v.host)}</td>
+      <td>${v.port}</td>
+      <td>${esc(v.banner || "-")}</td>
+      <td>${esc(v.cve_id || "-")}</td>
+      <td><span class="sev ${v.severity}">${v.severity}</span></td>
+    </tr>`).join("") : `<tr><td colspan="5" class="empty">Nenhum scan rodado ainda.</td></tr>`;
+}
+
+async function refreshAll() {
+  try {
+    await Promise.all([renderSummary(), renderAlerts(), renderEvents(), renderVulns()]);
+  } catch (e) {
+    console.error("Falha ao atualizar dashboard:", e);
+  }
+}
+
+refreshAll();
+setInterval(refreshAll, 5000);
+</script>
+</body>
+</html>

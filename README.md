@@ -41,6 +41,12 @@ frontend/
 Todo módulo escreve no mesmo banco (`Event`, `Alert`, etc.), então a
 detecção vê logs e tráfego de rede pela mesma lente.
 
+## Windows: leia antes de instalar
+
+O backend usa `iptables` e caminhos de log Linux (`/var/log/auth.log`) —
+não funciona nativamente no Windows. Se seu notebook é Windows, use o
+WSL2: passo a passo em **[docs/wsl2-setup.md](docs/wsl2-setup.md)**.
+
 ## Como rodar (ambiente de laboratório)
 
 ```bash

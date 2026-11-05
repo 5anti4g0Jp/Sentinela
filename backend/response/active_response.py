@@ -9,12 +9,19 @@ e tecnicamente furado (IP de origem costuma ser spoofado/de terceiro).
 Por padrão DRY_RUN=True: loga o que faria, sem executar. Mude para False
 só quando tiver validado em ambiente de lab.
 """
+import platform
 import subprocess
 from datetime import datetime, timezone
 
 from db import SessionLocal, ResponseAction
 
 DRY_RUN = True  # mude para False conscientemente, em ambiente de lab
+
+# ban_ip/unban_ip chamam iptables direto — existe só em Linux. Em Windows
+# nativo ou macOS isso falharia com um erro críptico de subprocess; melhor
+# avisar com clareza o que fazer, em vez de deixar o ResponseAction gravado
+# com "[Errno 2] No such file or directory: 'iptables'".
+_IS_LINUX = platform.system() == "Linux"
 
 
 def _utcnow():
@@ -40,6 +47,13 @@ def ban_ip(ip: str, alert_id: int = None) -> str:
                      "DRY_RUN ativo — nenhuma regra de firewall foi aplicada.")
         return "dry_run"
 
+    if not _IS_LINUX:
+        msg = (f"iptables só existe em Linux (sistema atual: {platform.system()}). "
+               "Rode o backend dentro do WSL2/VM Linux pra resposta ativa funcionar "
+               "de verdade — veja docs/wsl2-setup.md.")
+        _log_action(alert_id, "ban_ip", ip, "failed", msg)
+        return "failed"
+
     cmd = ["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"]
     try:
         subprocess.run(cmd, check=True, capture_output=True, timeout=5)
@@ -54,6 +68,11 @@ def unban_ip(ip: str, alert_id: int = None) -> str:
     if DRY_RUN:
         _log_action(alert_id, "unban_ip", ip, "dry_run", "DRY_RUN ativo.")
         return "dry_run"
+
+    if not _IS_LINUX:
+        _log_action(alert_id, "unban_ip", ip, "failed",
+                     f"iptables só existe em Linux (sistema atual: {platform.system()}).")
+        return "failed"
 
     cmd = ["iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"]
     try:

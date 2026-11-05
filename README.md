@@ -21,7 +21,30 @@ Toda resposta automática aqui age **dentro do seu próprio perímetro**
 
 O sniffer de rede e o scanner só devem rodar contra **hosts e redes que
 você tem autorização para testar** (sua VM/laboratório). Capturar tráfego
-ou escanear rede de terceiros sem autorização também é crime.
+ou escanear rede de terceiros sem autorização também é crime. O scanner
+**impõe** isso no código, não só promete no texto: `/api/scan` recusa
+(HTTP 403) qualquer host que não resolva pra IP privado/loopback, a menos
+que você rode com `SENTINELA_SCAN_ALLOW_PUBLIC=1` conscientemente.
+
+## Segurança da API
+
+A API não tem CORS aberto nem é anônima — sem isso, qualquer página aberta
+no seu navegador poderia disparar ações nela (ex: um scan) sem você saber.
+
+- **CORS** restrito a `localhost:8000`/`127.0.0.1:8000` (e `null`, origem
+  que o navegador manda quando o dashboard é aberto como arquivo local).
+- **Token obrigatório** (header `X-API-Key`) em todo endpoint `/api/*`.
+  Gerado automaticamente na primeira subida e salvo em
+  `backend/.sentinela_token` (gitignored — nunca commite esse arquivo).
+  O dashboard busca o token sozinho via `/api/token`, que só responde a
+  quem conecta de `localhost` — não precisa copiar nada manualmente.
+- Pra fixar um token específico (ex: múltiplas máquinas), defina
+  `SENTINELA_API_TOKEN` antes de subir o `uvicorn`.
+
+Isso ainda **não é um sistema de login** — é o mínimo pra não deixar a
+API 100% aberta num `localhost` que qualquer processo na sua máquina
+alcança. Não exponha essa API além de `localhost` sem adicionar
+autenticação de verdade.
 
 ## Arquitetura
 

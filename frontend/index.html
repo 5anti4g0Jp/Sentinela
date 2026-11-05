@@ -176,12 +176,23 @@ const API = "http://localhost:8000/api";
 const SEV_COLOR = { critical: "#ff4d4f", high: "#ff9f43", medium: "#ffd43b", low: "#4dd4ac", info: "#5a9bd4" };
 const SOURCE_COLOR = { auth_log: "#4dd4ac", web_log: "#ff9f43", network: "#5a9bd4" };
 
+// Token buscado uma vez no carregamento via /api/token (só responde pra
+// localhost). Sem ele, toda chamada autenticada volta 401.
+let API_TOKEN = null;
+
+async function bootstrapToken() {
+  const res = await fetch(`${API}/token`);
+  if (!res.ok) throw new Error(`não consegui obter o token (${res.status})`);
+  const data = await res.json();
+  API_TOKEN = data.token;
+}
+
 function esc(s) { return (s ?? "").toString().replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString("pt-BR"); }
 function fmtDateTime(ts) { return new Date(ts).toLocaleString("pt-BR"); }
 
 async function fetchJSON(path) {
-  const res = await fetch(`${API}${path}`);
+  const res = await fetch(`${API}${path}`, { headers: { "X-API-Key": API_TOKEN } });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return res.json();
 }
@@ -323,16 +334,27 @@ async function triggerScan() {
   const btn = document.getElementById("btn-scan");
   btn.disabled = true; btn.textContent = "Varrendo…";
   try {
-    await fetch(`${API}/scan`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ host, enrich_cve: true }) });
-    await refreshAll();
-  } catch (e) { console.error(e); }
+    const res = await fetch(`${API}/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": API_TOKEN },
+      body: JSON.stringify({ host, enrich_cve: true }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      // 403 aqui normalmente é ScanTargetNotAllowed (host fora do seu lab) —
+      // mostra a mensagem real em vez de engolir em silêncio.
+      alert(body.detail || `Varredura recusada (${res.status}).`);
+    } else {
+      await refreshAll();
+    }
+  } catch (e) { console.error(e); alert("Falha ao contatar a API: " + e.message); }
   finally { btn.disabled = false; btn.textContent = "Nova varredura"; }
 }
 
 async function refreshAll() {
   const statusEl = document.getElementById("conn-status");
   try {
+    if (!API_TOKEN) await bootstrapToken();
     await Promise.all([renderStats(), renderSevBar(), renderScatter(), renderAlerts(),
                         renderTerminal(), renderVulns()]);
     renderModeBadge();

@@ -5,24 +5,61 @@ Sobe a API (dashboard), o motor de detecção em background e expõe os
 endpoints que o frontend consome. Coletores de log e o sniffer de rede
 são processos/threads separados (veja README) para não travar a API.
 """
+import os
+import secrets
 import threading
 import time
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from db import SessionLocal, Event, Alert, Vulnerability, ResponseAction, init_db
 from detection.engine import run_detection_cycle
 from response.active_response import handle_alert
-from scanner.vuln_scanner import scan_host
+from scanner.vuln_scanner import scan_host, ScanTargetNotAllowed
 
 app = FastAPI(title="Sentinela", version="0.1.0")
+
+# CORS restrito: sem isso, QUALQUER página aberta no seu navegador podia
+# fazer fetch() contra localhost:8000 e disparar ações (ex: um scan) sem
+# você saber — é CSRF básico contra uma API sem proteção. O dashboard é
+# aberto como arquivo local (file://), que o navegador manda como
+# Origin: null, por isso "null" também precisa estar na lista.
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "null"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 DETECTION_INTERVAL_SEC = 10
+
+# --- Autenticação simples por token ------------------------------------------
+# Não é um sistema de login — é o mínimo pra não deixar a API 100% aberta.
+# Token fica em backend/.sentinela_token (gitignored), gerado uma vez e
+# reaproveitado nas próximas subidas. Pode ser sobrescrito por env var.
+_TOKEN_FILE = Path(__file__).parent / ".sentinela_token"
+
+
+def _load_or_create_token() -> str:
+    env_token = os.environ.get("SENTINELA_API_TOKEN")
+    if env_token:
+        return env_token
+    if _TOKEN_FILE.exists():
+        return _TOKEN_FILE.read_text().strip()
+    token = secrets.token_urlsafe(24)
+    _TOKEN_FILE.write_text(token)
+    return token
+
+
+API_TOKEN = _load_or_create_token()
+
+
+def require_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_TOKEN:
+        raise HTTPException(401, "Token inválido ou ausente (header X-API-Key).")
 
 
 # --- Loop de detecção + resposta em background ------------------------------
@@ -63,7 +100,7 @@ def startup():
 
 # --- Endpoints ----------------------------------------------------------------
 
-@app.get("/api/events")
+@app.get("/api/events", dependencies=[Depends(require_api_key)])
 def list_events(limit: int = 100, source: str = None):
     db = SessionLocal()
     try:
@@ -80,7 +117,7 @@ def list_events(limit: int = 100, source: str = None):
         db.close()
 
 
-@app.get("/api/alerts")
+@app.get("/api/alerts", dependencies=[Depends(require_api_key)])
 def list_alerts(status: str = None, limit: int = 100):
     db = SessionLocal()
     try:
@@ -97,7 +134,7 @@ def list_alerts(status: str = None, limit: int = 100):
         db.close()
 
 
-@app.post("/api/alerts/{alert_id}/ignore")
+@app.post("/api/alerts/{alert_id}/ignore", dependencies=[Depends(require_api_key)])
 def ignore_alert(alert_id: int):
     db = SessionLocal()
     try:
@@ -111,7 +148,7 @@ def ignore_alert(alert_id: int):
         db.close()
 
 
-@app.get("/api/vulnerabilities")
+@app.get("/api/vulnerabilities", dependencies=[Depends(require_api_key)])
 def list_vulnerabilities(host: str = None, limit: int = 200):
     db = SessionLocal()
     try:
@@ -133,14 +170,17 @@ class ScanRequest(BaseModel):
     enrich_cve: bool = True
 
 
-@app.post("/api/scan")
+@app.post("/api/scan", dependencies=[Depends(require_api_key)])
 def trigger_scan(req: ScanRequest):
     """Dispara o scanner de vulnerabilidades contra um host do seu lab."""
-    findings = scan_host(req.host, enrich_cve=req.enrich_cve)
+    try:
+        findings = scan_host(req.host, enrich_cve=req.enrich_cve)
+    except ScanTargetNotAllowed as e:
+        raise HTTPException(403, str(e))
     return {"host": req.host, "open_ports_found": len(findings)}
 
 
-@app.get("/api/responses")
+@app.get("/api/responses", dependencies=[Depends(require_api_key)])
 def list_responses(limit: int = 100):
     db = SessionLocal()
     try:
@@ -154,7 +194,21 @@ def list_responses(limit: int = 100):
         db.close()
 
 
-@app.get("/api/summary")
+@app.get("/api/token")
+def get_token(request: Request):
+    """
+    Bootstrap do token pro dashboard local — sem isso, o arquivo HTML
+    estático não teria como saber o token gerado no backend sem você
+    copiar manualmente. Só responde pra quem está em localhost: o CORS
+    restrito acima já impede página de outra origem de LER essa resposta
+    no navegador, e isso reforça checando a origem da conexão TCP também.
+    """
+    if request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Só acessível de localhost.")
+    return {"token": API_TOKEN}
+
+
+@app.get("/api/summary", dependencies=[Depends(require_api_key)])
 def summary():
     db = SessionLocal()
     try:

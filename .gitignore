@@ -4,3 +4,4 @@ __pycache__/
 *.pcap
 .venv/
 venv/
+.sentinela_token

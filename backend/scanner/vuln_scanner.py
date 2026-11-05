@@ -6,6 +6,8 @@ conhecido via NVD (opcional/best-effort).
 Sem dependência de nmap binário — usa sockets puros para portabilidade.
 Para scans mais completos depois, trocar por `python-nmap` é trivial.
 """
+import ipaddress
+import os
 import socket
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,6 +20,40 @@ from db import SessionLocal, Vulnerability
 COMMON_PORTS = [21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 5432, 6379, 8080, 8443]
 
 NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+# Escopo do projeto é "só o seu lab" — isso precisa ser imposto pelo
+# código, não só prometido no README. Por padrão só aceita host que
+# resolve pra IP privado/loopback. SENTINELA_SCAN_ALLOW_PUBLIC=1 destrava
+# isso conscientemente (ex: você quer testar contra um host de CTF
+# autorizado, fora da sua rede local).
+ALLOW_PUBLIC_SCAN = os.environ.get("SENTINELA_SCAN_ALLOW_PUBLIC") == "1"
+
+
+class ScanTargetNotAllowed(Exception):
+    """Host pedido não é privado/loopback e SENTINELA_SCAN_ALLOW_PUBLIC não está setado."""
+
+
+def _assert_host_in_scope(host: str) -> str:
+    """Resolve o host e garante que é privado/loopback, a menos que
+    explicitamente destravado. Retorna o IP resolvido."""
+    try:
+        resolved = socket.gethostbyname(host)
+    except socket.gaierror as e:
+        raise ScanTargetNotAllowed(f"Não foi possível resolver '{host}': {e}")
+
+    if ALLOW_PUBLIC_SCAN:
+        return resolved
+
+    ip = ipaddress.ip_address(resolved)
+    if not (ip.is_private or ip.is_loopback):
+        raise ScanTargetNotAllowed(
+            f"'{host}' resolve pra {resolved}, que não é privado/loopback. "
+            "O Sentinela só varre seu próprio lab por padrão — isso não é "
+            "limitação técnica, é a regra de escopo do projeto. Se você tem "
+            "autorização explícita pra escanear esse host, rode com "
+            "SENTINELA_SCAN_ALLOW_PUBLIC=1 conscientemente."
+        )
+    return resolved
 
 
 def _utcnow():
@@ -94,6 +130,7 @@ def _severity_from_cvss(cvss: Optional[float]) -> str:
 
 def scan_host(host: str, ports: List[int] = None, enrich_cve: bool = True) -> List[dict]:
     """Varre um host e persiste os achados. Retorna a lista de achados também."""
+    _assert_host_in_scope(host)  # levanta ScanTargetNotAllowed se fora do escopo
     ports = ports or COMMON_PORTS
     findings = []
 

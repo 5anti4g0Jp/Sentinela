@@ -1,5 +1,9 @@
 # Sentinela
 
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
+![Python](https://img.shields.io/badge/Python-3.11+-blue)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
+
 Sistema de cibersegurança defensivo com 4 módulos: **SIEM** (coleta/normaliza
 logs), **detecção** (regras mapeadas a MITRE ATT&CK), **scanner de
 vulnerabilidades** (portas/CVE), e **monitoramento de rede** (captura de

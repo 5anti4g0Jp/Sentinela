@@ -6,6 +6,8 @@ vulnerabilidades** (portas/CVE), e **monitoramento de rede** (captura de
 pacotes ao vivo, estilo Wireshark), com **resposta ativa defensiva**
 (bloqueio automático de IP no seu próprio firewall).
 
+![Dashboard do Sentinela](docs/dashboard.png)
+
 ## Escopo e limite ético/legal
 
 Este projeto é **só defensivo**. Ele **não** faz hack-back, contra-ataque,

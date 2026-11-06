@@ -15,8 +15,10 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 from pydantic import BaseModel
 
+from auth import totp
 from db import SessionLocal, Event, Alert, Vulnerability, ResponseAction, init_db
 from detection.engine import run_detection_cycle
 from response.active_response import handle_alert
@@ -64,6 +66,27 @@ def _load_or_create_token() -> str:
 
 
 API_TOKEN = _load_or_create_token()
+
+# --- Segundo fator (TOTP) -----------------------------------------------------
+# Protege o momento mais sensível: pegar o token pela primeira vez. Sem
+# isso, quem tivesse acesso a backend/.sentinela_token (cópia de backup,
+# outro processo na máquina) já teria acesso total. Com TOTP, também
+# precisa do código de 6 dígitos que muda a cada 30s — gerado por um
+# segredo que só existe no seu app autenticador.
+_TOTP_SECRET, _totp_is_new = totp.load_or_create_secret()
+
+if _totp_is_new:
+    _uri = totp.provisioning_uri(_TOTP_SECRET)
+    print("\n" + "=" * 70)
+    print("SENTINELA — configuração do segundo fator (2FA)")
+    print("=" * 70)
+    print(f"Segredo (se preferir digitar manualmente): {_TOTP_SECRET}")
+    print(f"URI de provisionamento: {_uri}")
+    print("Escaneie o QR code em http://localhost:8000/api/2fa/qr")
+    print("(Google Authenticator, Authy, 1Password, etc.)")
+    print("Esse setup só aparece uma vez — o segredo fica salvo em")
+    print(".sentinela_totp_secret (gitignored).")
+    print("=" * 70 + "\n")
 
 
 def require_api_key(x_api_key: str = Header(default=None)):
@@ -207,17 +230,27 @@ def list_responses(limit: int = 100):
 
 
 @app.get("/api/token")
-def get_token(request: Request):
+def get_token(request: Request, code: str = ""):
     """
-    Bootstrap do token pro dashboard local — sem isso, o arquivo HTML
-    estático não teria como saber o token gerado no backend sem você
-    copiar manualmente. Só responde pra quem está em localhost: o CORS
-    restrito acima já impede página de outra origem de LER essa resposta
-    no navegador, e isso reforça checando a origem da conexão TCP também.
+    Bootstrap do token pro dashboard local, agora atrás do segundo fator:
+    só devolve o token com um código TOTP válido (?code=123456). Sem o
+    código certo do seu app autenticador, nem estar em localhost basta.
     """
     if request.client.host not in ("127.0.0.1", "::1"):
         raise HTTPException(403, "Só acessível de localhost.")
+    if not totp.verify_code(_TOTP_SECRET, code):
+        raise HTTPException(401, "Código 2FA inválido ou ausente.")
     return {"token": API_TOKEN}
+
+
+@app.get("/api/2fa/qr")
+def get_2fa_qr(request: Request):
+    """QR code pra configurar o app autenticador — só pra setup inicial,
+    não precisa de token (seria chicken-and-egg)."""
+    if request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Só acessível de localhost.")
+    png = totp.qr_png_bytes(totp.provisioning_uri(_TOTP_SECRET))
+    return Response(content=png, media_type="image/png")
 
 
 @app.get("/api/summary", dependencies=[Depends(require_api_key)])

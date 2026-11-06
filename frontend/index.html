@@ -97,9 +97,44 @@
   .empty::before { content: "# "; }
   .footer { margin-top: 16px; display: flex; justify-content: space-between;
             color: var(--muted); font-size: 10.5px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  #auth-gate {
+    position: fixed; inset: 0; background: var(--bg); z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #auth-gate.hidden { display: none; }
+  .auth-box {
+    background: var(--panel); border: 1px solid var(--border); padding: 28px 32px;
+    width: 320px; text-align: center;
+  }
+  .auth-box img { height: 36px; margin-bottom: 10px; }
+  .auth-box h2 { font-size: 14px; margin: 0 0 4px; }
+  .auth-box p { color: var(--muted); font-size: 11px; margin: 0 0 18px; }
+  .auth-box input {
+    width: 100%; background: #0b0f14; border: 1px solid var(--border2); color: var(--text);
+    padding: 10px; font-family: inherit; font-size: 20px; text-align: center;
+    letter-spacing: .3em; border-radius: 0; margin-bottom: 10px;
+  }
+  .auth-box input:focus { outline: none; border-color: var(--accent); }
+  .auth-box button { width: 100%; padding: 10px; }
+  .auth-error { color: var(--crit); font-size: 11px; margin-top: 10px; min-height: 14px; }
+  #dashboard-root.hidden { display: none; }
 </style>
 </head>
 <body>
+
+<div id="auth-gate">
+  <div class="auth-box">
+    <img src="assets/logo_dark_bg.png" alt="Sentinela">
+    <h2>VERIFICAÇÃO EM 2 ETAPAS</h2>
+    <p>Digite o código do seu app autenticador</p>
+    <input type="text" id="totp-code" inputmode="numeric" maxlength="6" placeholder="000000" autofocus>
+    <button id="btn-verify">VERIFICAR</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<div id="dashboard-root" class="hidden">
 
 <div class="topbar">
   <div class="brand">
@@ -171,18 +206,22 @@
   <span id="conn-status">conectando…</span>
 </div>
 
+</div><!-- /#dashboard-root -->
+
 <script>
 const API = "http://localhost:8000/api";
 const SEV_COLOR = { critical: "#ff4d4f", high: "#ff9f43", medium: "#ffd43b", low: "#4dd4ac", info: "#5a9bd4" };
 const SOURCE_COLOR = { auth_log: "#4dd4ac", web_log: "#ff9f43", network: "#5a9bd4" };
 
-// Token buscado uma vez no carregamento via /api/token (só responde pra
-// localhost). Sem ele, toda chamada autenticada volta 401.
+// Token só é liberado com um código TOTP válido (2FA) — ver verifyCode().
 let API_TOKEN = null;
 
-async function bootstrapToken() {
-  const res = await fetch(`${API}/token`);
-  if (!res.ok) throw new Error(`não consegui obter o token (${res.status})`);
+async function verifyCode(code) {
+  const res = await fetch(`${API}/token?code=${encodeURIComponent(code)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `código recusado (${res.status})`);
+  }
   const data = await res.json();
   API_TOKEN = data.token;
 }
@@ -354,7 +393,6 @@ async function triggerScan() {
 async function refreshAll() {
   const statusEl = document.getElementById("conn-status");
   try {
-    if (!API_TOKEN) await bootstrapToken();
     await Promise.all([renderStats(), renderSevBar(), renderScatter(), renderAlerts(),
                         renderTerminal(), renderVulns()]);
     renderModeBadge();
@@ -365,13 +403,40 @@ async function refreshAll() {
   }
 }
 
+// --- Portão de 2FA: nada do dashboard roda antes de um código válido ---
+async function submitCode() {
+  const input = document.getElementById("totp-code");
+  const errEl = document.getElementById("auth-error");
+  const btn = document.getElementById("btn-verify");
+  const code = input.value.trim();
+  if (code.length !== 6) { errEl.textContent = "Digite os 6 dígitos."; return; }
+
+  btn.disabled = true; btn.textContent = "Verificando…";
+  errEl.textContent = "";
+  try {
+    await verifyCode(code);
+    document.getElementById("auth-gate").classList.add("hidden");
+    document.getElementById("dashboard-root").classList.remove("hidden");
+    renderClock();
+    setInterval(renderClock, 1000);
+    refreshAll();
+    setInterval(refreshAll, 5000);
+  } catch (e) {
+    errEl.textContent = e.message;
+    input.value = "";
+    input.focus();
+  } finally {
+    btn.disabled = false; btn.textContent = "VERIFICAR";
+  }
+}
+
 document.getElementById("btn-scan").addEventListener("click", triggerScan);
 document.getElementById("btn-refresh").addEventListener("click", refreshAll);
-
-renderClock();
-setInterval(renderClock, 1000);
-refreshAll();
-setInterval(refreshAll, 5000);
+document.getElementById("btn-verify").addEventListener("click", submitCode);
+document.getElementById("totp-code").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitCode();
+});
+document.getElementById("totp-code").focus();
 </script>
 </body>
 </html>

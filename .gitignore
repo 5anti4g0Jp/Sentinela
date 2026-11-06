@@ -5,3 +5,4 @@ __pycache__/
 .venv/
 venv/
 .sentinela_token
+.sentinela_totp_secret

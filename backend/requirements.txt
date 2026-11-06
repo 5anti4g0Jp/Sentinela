@@ -3,3 +3,5 @@ uvicorn==0.30.6
 sqlalchemy==2.0.35
 requests==2.32.3
 scapy==2.5.0
+pyotp==2.9.0
+qrcode[pil]==7.4.2

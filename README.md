@@ -47,15 +47,32 @@ no seu navegador poderia disparar ações nela (ex: um scan) sem você saber.
 - **Token obrigatório** (header `X-API-Key`) em todo endpoint `/api/*`.
   Gerado automaticamente na primeira subida e salvo em
   `backend/.sentinela_token` (gitignored — nunca commite esse arquivo).
-  O dashboard busca o token sozinho via `/api/token`, que só responde a
-  quem conecta de `localhost` — não precisa copiar nada manualmente.
+  Comparação com `hmac.compare_digest` (não `!=`), pra não vazar por
+  timing attack.
 - Pra fixar um token específico (ex: múltiplas máquinas), defina
   `SENTINELA_API_TOKEN` antes de subir o `uvicorn`.
+- **Segundo fator (TOTP)**, mesmo protocolo do Google Authenticator/Authy.
+  O token só é liberado (`/api/token`) com um código válido de 6 dígitos
+  — então nem estar em `localhost`, nem ter acesso ao arquivo do token,
+  bastam sozinhos.
 
-Isso ainda **não é um sistema de login** — é o mínimo pra não deixar a
-API 100% aberta num `localhost` que qualquer processo na sua máquina
-alcança. Não exponha essa API além de `localhost` sem adicionar
-autenticação de verdade.
+### Configurando o 2FA (primeira vez)
+
+Na primeira subida do `uvicorn`, o terminal mostra um QR code pra
+escanear (ou o segredo, pra digitar manualmente) — guarde esse momento,
+ele só aparece uma vez. Se perder, apague `backend/.sentinela_totp_secret`
+e reinicie o servidor pra gerar um novo.
+
+1. Suba a API (`uvicorn main:app`) e olhe o terminal, ou abra
+   `http://localhost:8000/api/2fa/qr` no navegador pra ver o QR code.
+2. Escaneie com Google Authenticator, Authy, 1Password, etc.
+3. Abra `http://localhost:8000/` — o dashboard pede o código de 6 dígitos
+   antes de carregar qualquer coisa.
+
+Isso ainda **não é um sistema de login multiusuário** — é ferramenta de
+uso pessoal, com uma segunda barreira séria antes de entregar o token.
+Não exponha essa API além de `localhost` sem adicionar autenticação de
+sessão de verdade (cookies, expiração, múltiplos usuários).
 
 ## Arquitetura
 

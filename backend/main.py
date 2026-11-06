@@ -5,6 +5,7 @@ Sobe a API (dashboard), o motor de detecção em background e expõe os
 endpoints que o frontend consome. Coletores de log e o sniffer de rede
 são processos/threads separados (veja README) para não travar a API.
 """
+import hmac
 import os
 import secrets
 import threading
@@ -13,6 +14,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from db import SessionLocal, Event, Alert, Vulnerability, ResponseAction, init_db
@@ -22,14 +24,21 @@ from scanner.vuln_scanner import scan_host, ScanTargetNotAllowed
 
 app = FastAPI(title="Sentinela", version="0.1.0")
 
-# CORS restrito: sem isso, QUALQUER página aberta no seu navegador podia
-# fazer fetch() contra localhost:8000 e disparar ações (ex: um scan) sem
-# você saber — é CSRF básico contra uma API sem proteção. O dashboard é
-# aberto como arquivo local (file://), que o navegador manda como
-# Origin: null, por isso "null" também precisa estar na lista.
+# CORS restrito a localhost — sem isso, QUALQUER página aberta no seu
+# navegador podia fazer fetch() contra localhost:8000 e disparar ações
+# (ex: um scan) sem você saber.
+#
+# "null" NÃO está na lista de propósito — tinha ficado aqui antes (pro
+# dashboard aberto como file:// funcionar) e isso foi um erro real: Origin:
+# null também é o que uma <iframe sandbox> de QUALQUER página manda, então
+# qualquer site aberto no mesmo navegador podia ler a resposta de /api/token
+# através de uma iframe escondida. Provei isso rendendo o token de verdade
+# num teste. A correção é servir o dashboard pela própria API (mesma
+# origem, http://localhost:8000), não mais como arquivo local — veja o
+# StaticFiles no fim deste arquivo.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "null"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -58,7 +67,10 @@ API_TOKEN = _load_or_create_token()
 
 
 def require_api_key(x_api_key: str = Header(default=None)):
-    if x_api_key != API_TOKEN:
+    # hmac.compare_digest, não `!=` — comparação de string normal pode
+    # vazar o token por timing attack (CPython compara char a char e sai
+    # assim que acha diferença; compare_digest sempre compara tudo).
+    if not x_api_key or not hmac.compare_digest(x_api_key, API_TOKEN):
         raise HTTPException(401, "Token inválido ou ausente (header X-API-Key).")
 
 
@@ -220,3 +232,15 @@ def summary():
         }
     finally:
         db.close()
+
+
+# --- Dashboard (mesma origem da API) -----------------------------------------
+# Montado por ÚLTIMO, depois de toda rota /api/* — assim elas continuam
+# tendo prioridade de match, e StaticFiles só pega o resto ("/", assets).
+# Serve o dashboard em http://localhost:8000/ em vez de abrir o HTML como
+# arquivo local: isso faz o Origin ser http://localhost:8000 de verdade,
+# eliminando a necessidade de aceitar Origin: null no CORS (que era
+# explorável por qualquer página via iframe sandboxed — veja o comentário
+# no CORSMiddleware acima).
+_FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="dashboard")

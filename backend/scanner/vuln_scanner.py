@@ -77,10 +77,12 @@ def grab_banner(host: str, port: int, timeout: float = 1.5) -> Optional[str]:
         return None
 
 
-def scan_port(host: str, port: int) -> Optional[dict]:
+def scan_port(ip: str, port: int) -> Optional[dict]:
+    """Conecta direto no IP já validado — nunca recebe hostname aqui.
+    Ver nota em scan_host() sobre por que isso importa (TOCTOU/DNS rebinding)."""
     try:
-        with socket.create_connection((host, port), timeout=1.0):
-            banner = grab_banner(host, port)
+        with socket.create_connection((ip, port), timeout=1.0):
+            banner = grab_banner(ip, port)
             return {"port": port, "banner": banner}
     except (socket.timeout, ConnectionRefusedError, OSError):
         return None
@@ -129,13 +131,23 @@ def _severity_from_cvss(cvss: Optional[float]) -> str:
 
 
 def scan_host(host: str, ports: List[int] = None, enrich_cve: bool = True) -> List[dict]:
-    """Varre um host e persiste os achados. Retorna a lista de achados também."""
-    _assert_host_in_scope(host)  # levanta ScanTargetNotAllowed se fora do escopo
+    """Varre um host e persiste os achados. Retorna a lista de achados também.
+
+    IMPORTANTE: resolve `host` UMA vez aqui e usa o IP resultante pra toda
+    conexão real (scan_port/grab_banner). Antes, cada função resolvia o
+    hostname de novo por conta própria (gethostbyname aqui, getaddrinfo
+    dentro de socket.create_connection lá) — duas resoluções de DNS
+    independentes pro mesmo nome. Se o DNS mudasse entre as duas (DNS
+    rebinding, TTL curto), a checagem de escopo validava um IP mas a
+    conexão de fato ia pra outro, sem revalidação. Resolvendo uma vez e
+    propagando o IP, elimina essa janela.
+    """
+    ip = _assert_host_in_scope(host)  # levanta ScanTargetNotAllowed se fora do escopo
     ports = ports or COMMON_PORTS
     findings = []
 
     with ThreadPoolExecutor(max_workers=20) as pool:
-        futures = {pool.submit(scan_port, host, p): p for p in ports}
+        futures = {pool.submit(scan_port, ip, p): p for p in ports}
         for future in as_completed(futures):
             if result := future.result():
                 findings.append(result)

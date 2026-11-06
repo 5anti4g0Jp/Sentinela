@@ -37,8 +37,13 @@ que você rode com `SENTINELA_SCAN_ALLOW_PUBLIC=1` conscientemente.
 A API não tem CORS aberto nem é anônima — sem isso, qualquer página aberta
 no seu navegador poderia disparar ações nela (ex: um scan) sem você saber.
 
-- **CORS** restrito a `localhost:8000`/`127.0.0.1:8000` (e `null`, origem
-  que o navegador manda quando o dashboard é aberto como arquivo local).
+- **CORS** restrito a `localhost:8000`/`127.0.0.1:8000`. O dashboard é
+  servido pela própria API (abra `http://localhost:8000/`, não o arquivo
+  `.html` direto) — isso importa de verdade: `Origin: null` chegou a estar
+  na lista permitida pro dashboard funcionar aberto como arquivo local, e
+  isso vazava o token pra qualquer página aberta no mesmo navegador via
+  uma `<iframe sandbox>` (que também manda `Origin: null`). Encontrado e
+  corrigido num pentest no próprio projeto — veja o histórico de commits.
 - **Token obrigatório** (header `X-API-Key`) em todo endpoint `/api/*`.
   Gerado automaticamente na primeira subida e salvo em
   `backend/.sentinela_token` (gitignored — nunca commite esse arquivo).
@@ -92,7 +97,8 @@ pip install -r requirements.txt
 1. **API + dashboard:**
    ```bash
    uvicorn main:app --reload
-   # abra frontend/index.html no navegador (aponta para localhost:8000)
+   # abra http://localhost:8000/ no navegador — NÃO abra frontend/index.html
+   # como arquivo direto, isso quebra a proteção de CORS (veja "Segurança da API")
    ```
 
 2. **Coletor de log SSH** (processo separado, aponte para um auth.log real

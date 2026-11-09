@@ -1,5 +1,6 @@
 # Sentinela
 
+[![Testes](https://github.com/5anti4g0Jp/Sentinela/actions/workflows/tests.yml/badge.svg)](https://github.com/5anti4g0Jp/Sentinela/actions/workflows/tests.yml)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
@@ -91,6 +92,19 @@ frontend/
 
 Todo módulo escreve no mesmo banco (`Event`, `Alert`, etc.), então a
 detecção vê logs e tráfego de rede pela mesma lente.
+
+## Testes
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
+```
+
+31 testes cobrindo o parser de log (SSH/HTTP), cada regra de detecção
+isolada e o scanner (severidade, escopo, deduplicação). Roda em CI a
+cada push — veja o badge no topo. Não cobre o sniffer de rede nem a API
+HTTP em si (ainda), só a lógica de negócio.
 
 ## Windows: leia antes de instalar
 

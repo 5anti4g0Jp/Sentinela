@@ -9,6 +9,7 @@ import re
 import time
 from pathlib import Path
 from typing import Iterator
+from urllib.parse import unquote
 
 from db import SessionLocal, Event, utcnow
 
@@ -59,11 +60,18 @@ def parse_http_line(line: str):
     m = HTTP_LOG_RE.search(line)
     if not m:
         return None
-    path = m["path"]
+    # Decodifica %XX antes de casar o padrão — sem isso, "OR%201=1" (como
+    # navegador/curl/sqlmap mandam de verdade, já que espaço cru não é
+    # válido no request-target do HTTP) passava direto sem ser pego,
+    # porque \s não bate em "%20". Achado testando com pytest de verdade,
+    # não хipotético: um SQLi real sem o acaso de ter "--" no payload
+    # escapava silenciosamente. unquote() é seguro aqui mesmo com %
+    # literal malformado — devolve a string como está nesse caso.
+    decoded_path = unquote(m["path"])
     action = "http_request"
-    if SQLI_PATTERNS.search(path):
+    if SQLI_PATTERNS.search(decoded_path):
         action = "http_sqli_attempt"
-    elif XSS_PATTERNS.search(path):
+    elif XSS_PATTERNS.search(decoded_path):
         action = "http_xss_attempt"
     return dict(source="web_log", src_ip=m["ip"], action=action,
                 outcome="blocked" if m["status"].startswith(("4", "5")) else "success",

@@ -154,6 +154,15 @@ def scan_host(host: str, ports: List[int] = None, enrich_cve: bool = True) -> Li
 
     db = SessionLocal()
     try:
+        # Antes de gravar, apaga os achados anteriores DESSE host — sem
+        # isso, escanear o mesmo host duas vezes duplicava as linhas na
+        # tabela (mesma porta, mesmo banner, registro repetido a cada
+        # clique). A tabela deve refletir o estado atual do host, não o
+        # histórico de cada varredura — se uma porta estava aberta antes
+        # e fechou, ela também deve sumir da tabela, não só parar de
+        # crescer.
+        db.query(Vulnerability).filter(Vulnerability.host == host).delete()
+
         for f in findings:
             cve_matches = []
             if enrich_cve and f["banner"]:

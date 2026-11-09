@@ -352,14 +352,19 @@ async function renderTerminal() {
   term.scrollTop = term.scrollHeight;
 }
 
+let scanRanThisSession = false; // diferencia "nunca rodou" de "rodou e achou 0"
+
 async function renderVulns() {
   const rows = await fetchJSON("/vulnerabilities?limit=50");
   const body = document.getElementById("vulns");
+  const emptyMsg = scanRanThisSession
+    ? "Varredura rodou, nenhuma porta aberta encontrada nesse host."
+    : "Nenhum scan rodado ainda.";
   body.innerHTML = rows.length ? rows.map(v => `
     <tr>
       <td>${esc(v.host)}</td><td>${v.port}</td><td>${esc(v.banner || "-")}</td>
       <td>${esc(v.cve_id || "-")}</td><td><span class="sev ${v.severity}">${v.severity}</span></td>
-    </tr>`).join("") : `<tr><td colspan="5" class="empty">Nenhum scan rodado ainda.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="5" class="empty">${emptyMsg}</td></tr>`;
 }
 
 function renderModeBadge() {
@@ -384,6 +389,9 @@ async function triggerScan() {
       // mostra a mensagem real em vez de engolir em silêncio.
       alert(body.detail || `Varredura recusada (${res.status}).`);
     } else {
+      const result = await res.json();
+      scanRanThisSession = true;
+      alert(`Varredura concluída: ${result.open_ports_found} porta(s) aberta(s) encontrada(s) em ${result.host}.`);
       await refreshAll();
     }
   } catch (e) { console.error(e); alert("Falha ao contatar a API: " + e.message); }

@@ -13,12 +13,18 @@ O que isso NÃO é: não é MFA de conta de usuário (não existe conceito de
 pegar o token inicial, não uma re-autenticação por ação individual.
 """
 import io
+import os
 from pathlib import Path
 
 import pyotp
 import qrcode
 
-_SECRET_FILE = Path(__file__).parent.parent / ".sentinela_totp_secret"
+# Mesma lógica de SENTINELA_DATA_DIR do main.py (token da API) — sem
+# isso, o segredo do 2FA viveria só no filesystem do container Docker e
+# sumiria a cada restart, forçando reconfigurar tudo de novo.
+_DATA_DIR = Path(os.environ.get("SENTINELA_DATA_DIR", Path(__file__).parent.parent))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_SECRET_FILE = _DATA_DIR / ".sentinela_totp_secret"
 
 
 def load_or_create_secret() -> tuple[str, bool]:

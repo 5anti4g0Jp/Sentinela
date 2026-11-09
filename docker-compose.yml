@@ -1,0 +1,21 @@
+# NÃO TESTADO em execução real (sandbox sem daemon Docker — ver Dockerfile).
+# `docker compose up --build` a partir da raiz do repo.
+services:
+  sentinela:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persiste banco, token da API e segredo do 2FA fora do container —
+      # sem isso, `docker compose down` apagaria tudo e geraria um 2FA
+      # novo toda vez, obrigando a escanear o QR code de novo sempre.
+      - sentinela_data:/app/backend/data
+    environment:
+      - SENTINELA_DB_URL=sqlite:////app/backend/data/sentinela.db
+      - SENTINELA_DATA_DIR=/app/backend/data
+    # O scanner e o coletor de log usam esta API de dentro de outro
+    # container/host — ajuste SENTINELA_SCAN_ALLOW_PUBLIC=1 só se tiver
+    # certeza do que está fazendo (veja README, seção de escopo).
+
+volumes:
+  sentinela_data:

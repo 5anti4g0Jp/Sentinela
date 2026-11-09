@@ -51,7 +51,13 @@ DETECTION_INTERVAL_SEC = 10
 # Não é um sistema de login — é o mínimo pra não deixar a API 100% aberta.
 # Token fica em backend/.sentinela_token (gitignored), gerado uma vez e
 # reaproveitado nas próximas subidas. Pode ser sobrescrito por env var.
-_TOKEN_FILE = Path(__file__).parent / ".sentinela_token"
+# SENTINELA_DATA_DIR permite apontar pra um volume persistente (Docker) —
+# sem isso, o token viveria só no filesystem do container, e sumiria a
+# cada `docker compose down`, forçando reconfigurar o 2FA do zero toda
+# vez. Por padrão (sem Docker), continua em backend/ como sempre foi.
+_DATA_DIR = Path(os.environ.get("SENTINELA_DATA_DIR", Path(__file__).parent))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_TOKEN_FILE = _DATA_DIR / ".sentinela_token"
 
 
 def _load_or_create_token() -> str:

@@ -93,6 +93,18 @@ frontend/
 Todo módulo escreve no mesmo banco (`Event`, `Alert`, etc.), então a
 detecção vê logs e tráfego de rede pela mesma lente.
 
+## Docker (não testado em execução real)
+
+```bash
+docker compose up --build
+```
+
+**Aviso honesto**: escrevi o `Dockerfile`/`docker-compose.yml` com cuidado
+(dependências corretas, volume persistente pro banco/token/2FA), mas
+**nunca rodei um build de verdade** — o ambiente onde isso foi escrito
+não tem daemon Docker disponível. Se você testar e algo quebrar, é o
+primeiro lugar a desconfiar.
+
 ## Testes
 
 ```bash

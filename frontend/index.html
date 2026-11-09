@@ -87,6 +87,8 @@
   button::before { content: "[ "; } button::after { content: " ]"; }
   button:hover { background: var(--accent-dim); }
   button:disabled { opacity: .4; cursor: default; }
+  button.btn-sm { padding: 3px 6px; font-size: 10px; border-color: var(--muted); color: var(--muted); }
+  button.btn-sm:hover { background: #1a2531; border-color: var(--crit); color: var(--crit); }
 
   .mode-badge { display: flex; align-items: center; gap: 7px; padding: 7px 11px;
                 border-radius: 0; font-size: 11px; margin-bottom: 12px;
@@ -166,7 +168,7 @@
   <h2><span class="title">Alertas</span><span class="corner">DETECÇÃO · MITRE ATT&amp;CK</span></h2>
   <table>
     <thead><tr><th>Quando</th><th>Regra</th><th>MITRE</th><th>Severidade</th>
-      <th>Origem</th><th>Descrição</th><th>Status</th></tr></thead>
+      <th>Origem</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead>
     <tbody id="alerts"></tbody>
   </table>
 </div>
@@ -325,7 +327,19 @@ async function renderAlerts() {
       <td>${esc(a.src_ip)}</td>
       <td>${esc(a.description)}</td>
       <td class="status-${a.status}">${a.status}</td>
-    </tr>`).join("") : `<tr><td colspan="7" class="empty">Sem alertas ainda.</td></tr>`;
+      <td>${a.status === "open" ? `<button class="btn-sm" onclick="ignoreAlert(${a.id})">Ignorar</button>` : "-"}</td>
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">Sem alertas ainda.</td></tr>`;
+}
+
+async function ignoreAlert(id) {
+  if (!confirm("Marcar esse alerta como ignorado? Ele some da lista de abertos, mas continua no histórico.")) return;
+  try {
+    const res = await fetch(`${API}/alerts/${id}/ignore`, {
+      method: "POST", headers: { "X-API-Key": API_TOKEN },
+    });
+    if (!res.ok) { alert(`Não deu pra ignorar (${res.status}).`); return; }
+    await refreshAll();
+  } catch (e) { alert("Falha ao contatar a API: " + e.message); }
 }
 
 async function renderTerminal() {

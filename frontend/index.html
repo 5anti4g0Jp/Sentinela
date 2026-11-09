@@ -67,6 +67,19 @@
   .legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
   .legend i { width: 8px; height: 8px; display: inline-block; }
   .hint { color: #445566; font-size: 10.5px; margin-top: 8px; }
+
+  .proc-rule { color: var(--text); font-size: 12.5px; margin-bottom: 10px; }
+  .proc-rule b { color: var(--accent); }
+  .proc-steps { list-style: none; padding: 0; margin: 0 0 12px; counter-reset: step; }
+  .proc-steps li { counter-increment: step; padding: 6px 0 6px 28px; position: relative;
+                    font-size: 12.5px; border-bottom: 1px solid #16202b; }
+  .proc-steps li::before { content: counter(step); position: absolute; left: 0; top: 6px;
+                            color: var(--accent); font-weight: 700; border: 1px solid var(--accent-dim);
+                            width: 18px; height: 18px; text-align: center; line-height: 16px;
+                            font-size: 10px; }
+  .proc-nunca { margin-top: 10px; padding: 8px 11px; background: #2a0e10; border: 1px solid var(--crit);
+                color: var(--crit); font-size: 11px; }
+  .proc-ok { color: var(--low); font-size: 12.5px; }
   .hint::before { content: "# "; }
   .grid-line { stroke: #1a2531; stroke-width: 1; }
 
@@ -193,6 +206,11 @@
   </table>
 </div>
 
+<div class="panel" style="margin-bottom:14px;" id="procedimento-panel">
+  <h2><span class="title">Procedimento recomendado</span><span class="corner">RESPOSTA A INCIDENTE</span></h2>
+  <div id="procedimento"></div>
+</div>
+
 <div class="grid2">
   <div class="panel">
     <h2><span class="title">Terminal</span><span class="corner">LOG CRONOLÓGICO</span></h2>
@@ -257,6 +275,73 @@
 const API = "http://localhost:8000/api";
 const SEV_COLOR = { critical: "#ff4d4f", high: "#ff9f43", medium: "#ffd43b", low: "#4dd4ac", info: "#5a9bd4" };
 const SOURCE_COLOR = { auth_log: "#4dd4ac", web_log: "#ff9f43", network: "#5a9bd4" };
+
+// Procedimento de resposta por regra — tudo dentro do seu próprio
+// perímetro (isolar, bloquear, preservar evidência, denunciar pro canal
+// certo). Nunca inclui ação contra a máquina de origem do ataque: além
+// de ilegal, IP de origem costuma ser spoofado ou de vítima
+// intermediária — "revidar" quase sempre acerta terceiro inocente.
+const PROCEDURES = {
+  ssh_brute_force: {
+    titulo: "Força bruta de SSH detectada",
+    passos: [
+      "O Sentinela já bloqueou o IP no seu firewall local (ou bloquearia, fora de DRY_RUN) — confirme em Controles.",
+      "Troque a senha da conta visada, mesmo que nenhum login tenha sido aceito.",
+      "Revise `/var/log/auth.log` em busca de qualquer login ACEITO desse mesmo IP antes do bloqueio.",
+      "Considere desativar login por senha no SSH e usar só chave pública.",
+      "Se o IP continuar aparecendo depois de bloqueado, denuncie ao abuse do provedor de origem (veja o aviso abaixo).",
+    ],
+  },
+  web_sqli_attempt: {
+    titulo: "Tentativa de SQL Injection detectada",
+    passos: [
+      "Confirme se a requisição foi bloqueada (status 4xx/5xx) ou se passou — isso muda a gravidade real.",
+      "Revise o código da rota afetada: use queries parametrizadas, nunca concatenação de string no SQL.",
+      "Se suspeitar que o ataque teve sucesso, rotacione as credenciais do banco de dados imediatamente.",
+      "Audite o banco em busca de dado alterado ou exportado fora do padrão.",
+      "Considere colocar um WAF na frente da aplicação pra filtrar esse padrão antes de chegar no seu código.",
+    ],
+  },
+  web_xss_attempt: {
+    titulo: "Tentativa de XSS detectada",
+    passos: [
+      "Confirme se a requisição foi bloqueada.",
+      "Revise a rota afetada: escape toda entrada de usuário antes de renderizar em HTML.",
+      "Se o payload foi salvo em banco (XSS persistente), remova o dado malicioso salvo.",
+      "Avise usuários que possam ter visitado a página afetada, se o ataque teve sucesso.",
+    ],
+  },
+  network_port_scan: {
+    titulo: "Varredura de porta detectada",
+    passos: [
+      "Isso é reconhecimento, não invasão confirmada — não entre em pânico, mas não ignore.",
+      "Confira quais portas esse IP tentou: `/api/events?source=network` na aba Dados Brutos.",
+      "Feche qualquer porta que não precise estar exposta (revise o firewall).",
+      "Monitore se esse IP volta com tráfego mais específico (sinal de reconhecimento bem-sucedido).",
+    ],
+  },
+  network_volume_anomaly: {
+    titulo: "Volume anômalo de tráfego — possível exfiltração",
+    passos: [
+      "Isole a máquina de origem da rede imediatamente (desconecta o cabo/desliga o Wi-Fi se for local).",
+      "NÃO desligue a máquina — isso apaga evidência em memória. Suspenda os processos suspeitos, não a máquina.",
+      "Identifique qual processo está gerando o tráfego (`netstat`/`ss` na máquina afetada).",
+      "Exporte os logs e o `.pcap` capturado pelo Sentinela antes de qualquer limpeza — é sua evidência.",
+      "Se for incidente sério, considere notificar o CERT.br e, dependendo do dado exposto, a ANPD (LGPD).",
+    ],
+  },
+};
+
+const PROCEDIMENTO_GENERICO = {
+  titulo: "Sem ameaça ativa no momento",
+  passos: [
+    "Mantenha o Sentinela rodando — a detecção só funciona com o sistema ativo.",
+    "Revise periodicamente a aba Vulnerabilidades e corrija o que encontrar.",
+    "Garanta que o DRY_RUN está desligado só se você entender o que isso significa (veja Controles).",
+  ],
+};
+
+const SEV_ORDER = ["critical", "high", "medium", "low", "info"];
 
 // Token só é liberado com um código TOTP válido (2FA) — ver verifyCode().
 let API_TOKEN = null;
@@ -372,6 +457,34 @@ async function renderAlerts() {
       <td class="status-${a.status}">${a.status}</td>
       <td>${a.status === "open" ? `<button class="btn-sm" onclick="ignoreAlert(${a.id})">Ignorar</button>` : "-"}</td>
     </tr>`).join("") : `<tr><td colspan="8" class="empty">Sem alertas ainda.</td></tr>`;
+}
+
+async function renderProcedimento() {
+  const rows = await fetchJSON("/alerts?status=open&limit=100");
+  const el = document.getElementById("procedimento");
+
+  if (!rows.length) {
+    const p = PROCEDIMENTO_GENERICO;
+    el.innerHTML = `
+      <div class="proc-ok"># ${esc(p.titulo)}</div>
+      <ol class="proc-steps">${p.passos.map(s => `<li>${esc(s)}</li>`).join("")}</ol>`;
+    return;
+  }
+
+  // pega o alerta ABERTO de maior severidade — é o que importa agora
+  rows.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity));
+  const top = rows[0];
+  const proc = PROCEDURES[top.rule];
+
+  if (!proc) {
+    el.innerHTML = `<div class="proc-rule">Sem procedimento específico cadastrado pra <b>${esc(top.rule)}</b> ainda. Revise o alerta manualmente.</div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="proc-rule">Baseado no alerta mais urgente aberto: <b>${esc(proc.titulo)}</b> (origem ${esc(top.src_ip)}, severidade <span class="sev ${top.severity}">${top.severity}</span>)</div>
+    <ol class="proc-steps">${proc.passos.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    <div class="proc-nunca">⚠ NUNCA: não ataque, escaneie ou tente acessar a máquina de origem do IP — além de ilegal, o IP de ataque costuma ser falsificado ou pertencer a uma vítima intermediária. Pra denunciar de verdade, use o CERT.br (cert.br/docs/whois) ou o canal de abuse do provedor dono do IP.</div>`;
 }
 
 async function ignoreAlert(id) {
@@ -492,7 +605,7 @@ async function refreshAll() {
   const statusEl = document.getElementById("conn-status");
   try {
     const tasks = [renderStats(), renderSevBar(), renderScatter(), renderAlerts(),
-                    renderTerminal(), renderVulns()];
+                    renderTerminal(), renderVulns(), renderProcedimento()];
     if (currentTab === "dados") tasks.push(renderRawData());
     await Promise.all(tasks);
     renderModeBadge();
